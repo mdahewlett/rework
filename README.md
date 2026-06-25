@@ -106,6 +106,10 @@ rework base <commit>                # set the pre-AI baseline (rarely needed; se
 - Notes and times can be added in any order, anytime between `start` and `end`.
 - `--harness <name>` on `start` records which agent built it (default `claude-code`) so you
   can compare tools.
+- **Parallel worktrees work out of the box.** Run an agent in each of several worktrees of
+  the same repo and start a separate rework session in each — the in-progress state is keyed
+  by `<repo>-<branch>`, so the sessions never collide. They all finalize into the same
+  per-repo log.
 
 **Back-filling a past session.** To reconstruct an entry from commits after the fact, point
 `start`/`end` at specific SHAs instead of `HEAD`:
@@ -184,8 +188,8 @@ with Claude Code skill frontmatter on top, so it's harness-agnostic.
 ```
 
 Repo identity is the basename of `git rev-parse --show-toplevel`, so clones and worktrees of
-the same repo log to the same file. The work-in-progress entry is keyed by
-`<repo>-<branch>`, so two concurrent worktrees never clobber each other.
+the same repo log to the same file — while the work-in-progress entry is keyed by
+`<repo>-<branch>`, which is what keeps parallel worktree sessions from clobbering each other.
 
 ## Roadmap
 
