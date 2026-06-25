@@ -21,12 +21,27 @@ Two boundaries, both triggered by you during a session:
 The tool is a single Python file (stdlib only) that shells out to `git`. It works in **any
 harness or none** — Claude Code, Codex, Cursor, Aider, or just your terminal.
 
+One line:
+
 ```sh
-git clone git@github.com:mdahewlett/rework.git ~/.rework
+curl -fsSL https://raw.githubusercontent.com/mdahewlett/rework/main/install.sh | bash
+```
+
+This clones to `~/.rework`, puts `rework` on your PATH, and — **only if it detects Claude
+Code** — installs the optional skill and a SessionStart hook so Claude knows the tool is
+there. It's idempotent; re-run it anytime to update. Other harnesses are left untouched.
+
+<details>
+<summary>Prefer not to pipe curl into bash? Manual install:</summary>
+
+```sh
+git clone https://github.com/mdahewlett/rework.git ~/.rework
 ln -sf ~/.rework/rework.py ~/.local/bin/rework   # ensure ~/.local/bin is on PATH
 ```
 
-That's the whole tool. The commands below are all you need.
+That's the whole tool. For the optional agent integration, see
+[Optional: agent integration](#optional-agent-integration) below.
+</details>
 
 The repo's code lives in `~/.rework/`. Your **data** — `<repo>.jsonl`, `_tags.json`,
 `.wip-*.json` — is written alongside it but is gitignored, so it never gets committed.
@@ -119,11 +134,12 @@ worktrees never clobber each other.
 
 The CLI is the whole tool — you can drive it by hand. But if you work *with* a coding agent,
 `skill/SKILL.md` is a playbook that teaches the agent to drive the CLI conversationally:
-recognize "start/end rework," capture categorized notes as you give feedback, and finalize.
-The agent runs the commands; it never touches the data files. It's harness-agnostic — the
-file is plain instructions with Claude Code frontmatter on top.
+recognize "start rework" / "end rework," capture categorized notes as you give feedback, and
+finalize. The agent runs the commands; it never touches the data files. It's harness-agnostic
+— the file is plain instructions with Claude Code frontmatter on top.
 
-**Claude Code** — install it where Claude discovers skills:
+**Claude Code** — the one-line installer wires this up automatically (skill + a SessionStart
+hook that reminds Claude the tool is available). If you installed manually, do it yourself:
 
 ```sh
 mkdir -p ~/.claude/skills/rework-tracking

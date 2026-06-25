@@ -1,6 +1,6 @@
 ---
 name: rework-tracking
-description: Use when the user says "start rework" / "end rework" / "log it", or otherwise wants to track how much of the AI's first implementation gets changed before merge. Drives the `rework` CLI to capture rework metrics and categorized notes during a coding session.
+description: Use when the user says "start rework" / "end rework", or otherwise wants to track how much of the AI's first implementation gets changed before merge. Drives the `rework` CLI to capture rework metrics and categorized notes during a coding session.
 ---
 
 # Rework Tracking
@@ -20,7 +20,7 @@ write its files (`~/.rework/`). You only run commands.
 
 - **A — "start rework"**: the user signals your first complete implementation is done.
   Run `rework start`. This stamps the current `HEAD` as commit A.
-- **B — "end rework" / "log it"**: the user is satisfied and about to merge.
+- **B — "end rework"**: the user is satisfied and about to merge.
   Run `rework end`. This stamps `HEAD` as commit B and finalizes the entry.
 
 Everything between A and B that the user changes is the rework being measured.
@@ -61,7 +61,7 @@ rework review <minutes>    # review -> merge
 
 These can come anytime between start and end, in any order.
 
-### When the user says "end rework" / "log it"
+### When the user says "end rework"
 Before finalizing, make sure time is captured. If `build`/`review` minutes haven't been
 given, **ask for them** ("How long did build and review take?"). Then:
 
