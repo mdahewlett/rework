@@ -83,7 +83,7 @@ Open set — add new ones freely. Starters:
 - **architecture** — how code is split across files/modules/layers; boundaries; wrong altitude.
 - **wrong-abstraction** — duplication that should be shared; premature/over-built abstraction; wrong interface.
 - **missed-spec** — you did what was asked, but the ask was incomplete; user-added extras.
-- **naming-style** — names, conventions, matching surrounding idiom, comment/docstring fixes.
+- **style** — local code style: naming, idiom, type aliases, readability within a file (not structural).
 
 ## Important
 

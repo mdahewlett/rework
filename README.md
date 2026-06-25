@@ -112,7 +112,7 @@ An open set (new tags auto-register in `_tags.json`). Seeds:
 - **architecture** — how code is split across files/layers; boundaries; wrong altitude.
 - **wrong-abstraction** — duplication that should be shared; premature abstraction; wrong interface.
 - **missed-spec** — the AI did what was asked, but the ask was incomplete; your extras.
-- **naming-style** — names, conventions, matching surrounding idiom, comment fixes.
+- **style** — local code style: naming, idiom, type aliases, readability within a file (not structural).
 
 ## Storage layout
 

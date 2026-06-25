@@ -24,10 +24,10 @@ ROOT = Path.home() / ".rework"
 TAGS_PATH = ROOT / "_tags.json"
 
 SEED_TAGS = {
-    "architecture": "how code is split across files/modules/layers; boundaries; wrong altitude",
+    "architecture": "how code is split across files/modules/layers; boundaries; wrong altitude; structural reorganization",
     "wrong-abstraction": "duplication that should be shared; premature/over-built abstraction; wrong interface",
     "missed-spec": "AI did what was asked, but the ask was incomplete; user-added extras",
-    "naming-style": "names, conventions, matching surrounding idiom, comment/docstring fixes",
+    "style": "local code style: naming, idiom, type aliases, readability within a file (not structural)",
 }
 
 
@@ -38,6 +38,8 @@ def main():
     p_start = sub.add_parser("start", help="stamp HEAD as commit A (AI's first effort)")
     p_start.add_argument("slug", nargs="?", help="work slug (default: branch name)")
     p_start.add_argument("description", nargs="?", help="one-line description")
+    p_start.add_argument("--at", help="use this commit as A instead of HEAD (back-fill)")
+    p_start.add_argument("--base", help="pre-AI baseline commit (default: merge-base vs default branch)")
     p_start.add_argument("--harness", default="claude-code", help="AI harness (default: claude-code)")
     p_start.set_defaults(func=cmd_start)
 
@@ -45,6 +47,10 @@ def main():
     p_note.add_argument("-c", "--category", required=True, help="rework category tag")
     p_note.add_argument("text", help="what was changed, in your words")
     p_note.set_defaults(func=cmd_note)
+
+    p_base = sub.add_parser("base", help="set/update the pre-AI baseline commit")
+    p_base.add_argument("commit", help="baseline commit (sha or ref)")
+    p_base.set_defaults(func=cmd_base)
 
     p_build = sub.add_parser("build", help="record build minutes (plan -> first impl)")
     p_build.add_argument("minutes", type=int)
@@ -55,6 +61,7 @@ def main():
     p_review.set_defaults(func=cmd_review)
 
     p_end = sub.add_parser("end", help="stamp HEAD as commit B, finalize the entry")
+    p_end.add_argument("--at", help="use this commit as B instead of HEAD (back-fill)")
     p_end.set_defaults(func=cmd_end)
 
     p_status = sub.add_parser("status", help="show the current in-progress entry")
@@ -78,17 +85,23 @@ def cmd_start(args):
         warn(f"on default branch '{branch}' — you usually start rework on a feature branch. "
              "Slug inference and WIP keying are weakest here.")
 
+    commit_a = git("rev-parse", args.at) if args.at else git("rev-parse", "HEAD")
+    commits = {"a": commit_a}
+    if args.base:
+        commits["base"] = git("rev-parse", args.base)
+
     entry = {
         "slug": slug,
         "description": args.description,
         "harness": args.harness,
         "branch": branch,
-        "commits": {"a": git("rev-parse", "HEAD")},
+        "commits": commits,
         "time": {},
         "rework_notes": [],
     }
     write_json(wip_path, entry)
-    print(f"started '{slug}' [{args.harness}] — A={entry['commits']['a'][:7]} on {branch}")
+    base_note = f" base={commits['base'][:7]}" if "base" in commits else ""
+    print(f"started '{slug}' [{args.harness}] — A={commit_a[:7]}{base_note} on {branch}")
 
 
 def cmd_note(args):
@@ -97,6 +110,14 @@ def cmd_note(args):
     entry["rework_notes"].append({"category": args.category, "note": args.text})
     write_json(wip_path_for(repo_name(), entry["branch"]), entry)
     print(f"noted [{args.category}] {args.text}")
+
+
+def cmd_base(args):
+    entry = load_wip()
+    base = git("rev-parse", args.commit)
+    entry["commits"]["base"] = base
+    write_json(wip_path_for(repo_name(), entry["branch"]), entry)
+    print(f"base = {base[:7]}")
 
 
 def cmd_build(args):
@@ -118,8 +139,8 @@ def cmd_end(args):
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     entry = load_wip()
     commit_a = entry["commits"]["a"]
-    commit_b = git("rev-parse", "HEAD")
-    base = merge_base(commit_a)
+    commit_b = git("rev-parse", args.at) if args.at else git("rev-parse", "HEAD")
+    base = entry["commits"].get("base") or merge_base(commit_a)
 
     ai_files, ai_lines = churn(f"{base}..{commit_a}")
     rework_files, rework_lines = churn(f"{commit_a}..{commit_b}")
