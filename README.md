@@ -18,14 +18,18 @@ Two boundaries, both triggered by you during a session:
 
 ## Install
 
+The tool is a single Python file (stdlib only) that shells out to `git`. It works in **any
+harness or none** — Claude Code, Codex, Cursor, Aider, or just your terminal.
+
 ```sh
 git clone git@github.com:mdahewlett/rework.git ~/.rework
 ln -sf ~/.rework/rework.py ~/.local/bin/rework   # ensure ~/.local/bin is on PATH
 ```
 
-The tool's code lives in this repo (`~/.rework/`). Your **data** —
-`<repo>.jsonl`, `_tags.json`, `.wip-*.json` — is written alongside it but is gitignored,
-so it never gets committed to this public repo.
+That's the whole tool. The commands below are all you need.
+
+The repo's code lives in `~/.rework/`. Your **data** — `<repo>.jsonl`, `_tags.json`,
+`.wip-*.json` — is written alongside it but is gitignored, so it never gets committed.
 
 > **Caveat:** because data and code share `~/.rework/`, avoid `git clean -x` here — it
 > would delete your gitignored logs. Plain `git clean` is safe (respects `.gitignore`).
@@ -111,18 +115,29 @@ Repo identity = basename of `git rev-parse --show-toplevel`, so clones/worktrees
 same repo log to the same file. The WIP is keyed by `<repo>-<branch>` so two concurrent
 worktrees never clobber each other.
 
-## Agent integration
+## Optional: agent integration
 
-There's a companion Claude Code skill (`rework-tracking`) that teaches an agent to drive
-this CLI conversationally — recognizing "start/end rework," capturing categorized notes as
-you give feedback, and finalizing. The agent runs the commands; it never touches the data
-files. The reference copy lives at `skill/SKILL.md`; to activate it in Claude Code, install
-it where the harness discovers skills:
+The CLI is the whole tool — you can drive it by hand. But if you work *with* a coding agent,
+`skill/SKILL.md` is a playbook that teaches the agent to drive the CLI conversationally:
+recognize "start/end rework," capture categorized notes as you give feedback, and finalize.
+The agent runs the commands; it never touches the data files. It's harness-agnostic — the
+file is plain instructions with Claude Code frontmatter on top.
+
+**Claude Code** — install it where Claude discovers skills:
 
 ```sh
 mkdir -p ~/.claude/skills/rework-tracking
 ln -sf ~/.rework/skill/SKILL.md ~/.claude/skills/rework-tracking/SKILL.md
 ```
+
+**Codex / Cursor / Aider / others** — point the agent at the file as context, e.g. add a
+line to your `AGENTS.md` / `.cursorrules` / project instructions:
+
+```
+For rework tracking, follow ~/.rework/skill/SKILL.md and use the `rework` CLI.
+```
+
+**No agent** — skip the skill entirely; just run the commands yourself.
 
 ## Not yet built
 

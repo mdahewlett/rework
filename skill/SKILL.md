@@ -5,6 +5,10 @@ description: Use when the user says "start rework" / "end rework" / "log it", or
 
 # Rework Tracking
 
+> Agent playbook for the harness-agnostic `rework` CLI. It carries YAML frontmatter for
+> Claude Code skill discovery, but the body is plain instructions — any coding agent
+> (Codex, Cursor, Aider, …) can be pointed at this file as context to get the same behavior.
+
 You help the user measure **rework**: how much of your (the AI's) first complete
 implementation gets changed before the user is satisfied enough to merge. This is a
 lead indicator of how well the user prompts and how agent-ready the repo is.
