@@ -1,0 +1,8 @@
+# Personal rework data — never commit. The whole point of the central dir.
+*.jsonl
+_tags.json
+.wip-*.json
+
+# Python noise
+__pycache__/
+*.pyc
