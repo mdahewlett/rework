@@ -6,3 +6,5 @@ _tags.json
 # Python noise
 __pycache__/
 *.pyc
+
+.vscode/
