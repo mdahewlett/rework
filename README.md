@@ -201,6 +201,10 @@ support all of it without rewriting history:
 - **Cross-repo views** — globbing `~/.rework/*.jsonl` for a portfolio picture.
 - **Time integration** — pulling build/review minutes from a tracker instead of by hand.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for notable changes per version.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
