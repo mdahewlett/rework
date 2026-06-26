@@ -69,8 +69,9 @@ def main():
     p_status = sub.add_parser("status", help="show the current in-progress entry")
     p_status.set_defaults(func=cmd_status)
 
-    p_help = sub.add_parser("help", help="show this help (same as --help)")
-    p_help.set_defaults(func=lambda args: parser.parse_args(["--help"]))
+    p_help = sub.add_parser("help", help="show help; --all for every command's arguments")
+    p_help.add_argument("--all", action="store_true", help="show every command with its full arguments")
+    p_help.set_defaults(func=lambda args: cmd_help(args, parser, sub))
 
     p_list = sub.add_parser("list", help="list finalized entries (id, date, slug), newest first")
     p_list.add_argument("--limit", type=int, default=10, help="show the N most recent (default: 10)")
@@ -196,6 +197,17 @@ def cmd_status(args):
         print(f"no rework in progress on branch '{branch}'")
         return
     print(json.dumps(json.loads(wip_path.read_text()), indent=2))
+
+
+def cmd_help(args, parser, sub):
+    parser.print_help()
+    if not args.all:
+        return
+    for name, subparser in sub.choices.items():
+        if name == "help":
+            continue
+        print(f"\n{'─' * 60}\nrework {name}\n")
+        print(subparser.format_help())
 
 
 def cmd_list(args):

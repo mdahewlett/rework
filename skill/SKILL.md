@@ -98,6 +98,11 @@ moves from churn"), record it — don't try to implement it inline:
 rework change-request "<the request>"
 ```
 
+### Discovering commands
+`rework help` (or `--help`) prints the command menu. `rework help --all` prints every
+command **with its full arguments and descriptions** in one shot — use it when you need the
+exact syntax of a command without drilling into each `rework <cmd> --help` separately.
+
 ### Checking state
 `rework status` prints the in-progress entry. Use it to confirm what's captured so far if
 you're unsure (e.g. after a long session, before `end`).
