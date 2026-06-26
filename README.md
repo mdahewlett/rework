@@ -114,6 +114,9 @@ rework help [--all]                       # command menu, or every command with 
 - Notes and times can be added in any order, anytime between `start` and `end`.
 - `--harness <name>` on `start` records which agent built it (default `claude-code`) so you
   can compare tools.
+- `--json` gives machine-readable output for `status` / `list` / `tags` / `end` (and is the
+  default when output isn't a terminal, so agents get structure for free). `--version` / `-V`
+  prints the version.
 - **Parallel worktrees work out of the box.** Run an agent in each of several worktrees of
   the same repo and start a separate rework session in each — the in-progress state is keyed
   by `<repo>-<branch>`, so the sessions never collide. They all finalize into the same
