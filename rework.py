@@ -69,6 +69,9 @@ def main():
     p_status = sub.add_parser("status", help="show the current in-progress entry")
     p_status.set_defaults(func=cmd_status)
 
+    p_help = sub.add_parser("help", help="show this help (same as --help)")
+    p_help.set_defaults(func=lambda args: parser.parse_args(["--help"]))
+
     p_list = sub.add_parser("list", help="list finalized entries (id, date, slug), newest first")
     p_list.add_argument("--limit", type=int, default=10, help="show the N most recent (default: 10)")
     p_list.set_defaults(func=cmd_list)
