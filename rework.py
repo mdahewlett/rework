@@ -69,6 +69,9 @@ def main():
     p_status = sub.add_parser("status", help="show the current in-progress entry")
     p_status.set_defaults(func=cmd_status)
 
+    p_tags = sub.add_parser("tags", help="list the current category vocabulary")
+    p_tags.set_defaults(func=cmd_tags)
+
     p_help = sub.add_parser("help", help="show help; --all for every command's arguments")
     p_help.add_argument("--all", action="store_true", help="show every command with its full arguments")
     p_help.set_defaults(func=lambda args: cmd_help(args, parser, sub))
@@ -197,6 +200,14 @@ def cmd_status(args):
         print(f"no rework in progress on branch '{branch}'")
         return
     print(json.dumps(json.loads(wip_path.read_text()), indent=2))
+
+
+def cmd_tags(args):
+    tags = json.loads(TAGS_PATH.read_text()) if TAGS_PATH.exists() else dict(SEED_TAGS)
+    width = max((len(name) for name in tags), default=0)
+    for name in sorted(tags):
+        description = tags[name] or "(no description)"
+        print(f"  {name:<{width}}  {description}")
 
 
 def cmd_help(args, parser, sub):

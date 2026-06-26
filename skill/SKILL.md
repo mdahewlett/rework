@@ -44,8 +44,9 @@ architecture issue), capture it:
 rework note -c <category> "<short description of the change>"
 ```
 
-- **Suggest the category** from the vocabulary below, but the user's framing wins. If the
-  user explicitly names a category ("this is a missed-spec thing"), use exactly that.
+- **Suggest the category** from the vocabulary below (or run `rework tags` to see the
+  current set), but the user's framing wins. If the user explicitly names a category
+  ("this is a missed-spec thing"), use exactly that.
 - If the right category isn't in the seed list, **just use a new one** — the vocabulary is
   open and the CLI auto-registers it. Prefer a short kebab-case tag.
 - Keep the note text short and concrete — what changed, in the user's words.
@@ -65,8 +66,14 @@ rework review <minutes>    # review -> merge
 These can come anytime between start and end, in any order.
 
 ### When the user says "end rework"
-Before finalizing, make sure time is captured. If `build`/`review` minutes haven't been
-given, **ask for them** ("How long did build and review take?"). Then:
+**Never suggest ending or wrapping up the rework session yourself.** Only the user decides
+when the cycle ends — don't propose `rework end`, don't ask "ready to wrap up?", don't hint
+the work looks done. Wait for the user to explicitly say "end rework." A rework cycle can
+stay open across many turns and a long review; that's expected, not something to close out.
+
+When the user *does* say "end rework": before finalizing, make sure time is captured. If
+`build`/`review` minutes haven't been given, **ask for them** ("How long did build and
+review take?"). Then:
 
 ```
 rework end
