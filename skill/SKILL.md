@@ -102,7 +102,9 @@ If the user wants the rework *tool* to behave differently ("rework should exclud
 moves from churn"), record it — don't try to implement it inline:
 
 ```
-rework change-request "<the request>"
+rework change-request "<the request>"             # record
+rework change-request --list                      # show the queue (id, status, request)
+rework change-request --set <id> <status>         # status: open | in-progress | done | wontfix
 ```
 
 ### Discovering commands

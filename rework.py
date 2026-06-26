@@ -24,6 +24,7 @@ from pathlib import Path
 ROOT = Path.home() / ".rework"
 TAGS_PATH = ROOT / "_tags.json"
 CHANGE_REQUESTS_PATH = ROOT / "change_requests.jsonl"
+CR_STATUSES = ("open", "in-progress", "done", "wontfix")
 
 SEED_TAGS = {
     "architecture": "how code is split across files/modules/layers; boundaries; wrong altitude; structural reorganization",
@@ -85,8 +86,11 @@ def main():
     p_snote.add_argument("--id", dest="entry_id", help="target a finalized entry by id (default: the live wip)")
     p_snote.set_defaults(func=cmd_session_note)
 
-    p_cr = sub.add_parser("change-request", help="record a request to change the rework tool itself")
-    p_cr.add_argument("text", help="the change request")
+    p_cr = sub.add_parser("change-request", help="record/list/update requests to change the rework tool itself")
+    p_cr.add_argument("text", nargs="?", help="the change request to record")
+    p_cr.add_argument("--list", action="store_true", help="list change requests")
+    p_cr.add_argument("--set", nargs=2, metavar=("ID", "STATUS"),
+                      help="set a request's status (open | in-progress | done | wontfix)")
     p_cr.set_defaults(func=cmd_change_request)
 
     args = parser.parse_args()
@@ -257,16 +261,54 @@ def _append_session_note_to_finalized(entry_id, text):
 
 
 def cmd_change_request(args):
+    if args.list:
+        _list_change_requests()
+    elif args.set:
+        _set_change_request_status(args.set[0], args.set[1])
+    elif args.text:
+        _record_change_request(args.text)
+    else:
+        die("nothing to do — pass a request to record, or use --list / --set ID STATUS")
+
+
+def _record_change_request(text):
     record = {
         "id": new_id(),
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "repo": repo_name(),
-        "request": args.text,
+        "request": text,
         "status": "open",
     }
     with CHANGE_REQUESTS_PATH.open("a") as f:
         f.write(json.dumps(record) + "\n")
-    print(f"change request recorded [{record['id']}]: {args.text}")
+    print(f"change request recorded [{record['id']}]: {text}")
+
+
+def _list_change_requests():
+    records = _load_change_requests()
+    if not records:
+        print("no change requests")
+        return
+    for record in records:
+        print(f"  [{record['id']}] {record['status']:<11}  {record['request']}")
+
+
+def _set_change_request_status(entry_id, status):
+    if status not in CR_STATUSES:
+        die(f"unknown status '{status}' — choose from {', '.join(CR_STATUSES)}")
+    records = _load_change_requests()
+    matches = [record for record in records if record.get("id") == entry_id]
+    if not matches:
+        die(f"no change request with id '{entry_id}' (try `rework change-request --list`)")
+    matches[0]["status"] = status
+    CHANGE_REQUESTS_PATH.write_text("".join(json.dumps(record) + "\n" for record in records))
+    print(f"change request [{entry_id}] -> {status}")
+
+
+def _load_change_requests():
+    if not CHANGE_REQUESTS_PATH.exists():
+        return []
+    return [json.loads(line) for line in CHANGE_REQUESTS_PATH.read_text().splitlines() if line.strip()]
 
 
 def load_wip():
