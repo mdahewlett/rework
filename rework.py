@@ -15,6 +15,7 @@ runs these commands; it never touches the files directly.
 
 import argparse
 import json
+import secrets
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -22,6 +23,7 @@ from pathlib import Path
 
 ROOT = Path.home() / ".rework"
 TAGS_PATH = ROOT / "_tags.json"
+CHANGE_REQUESTS_PATH = ROOT / "change_requests.jsonl"
 
 SEED_TAGS = {
     "architecture": "how code is split across files/modules/layers; boundaries; wrong altitude; structural reorganization",
@@ -66,6 +68,19 @@ def main():
 
     p_status = sub.add_parser("status", help="show the current in-progress entry")
     p_status.set_defaults(func=cmd_status)
+
+    p_list = sub.add_parser("list", help="list finalized entries (id, date, slug), newest first")
+    p_list.add_argument("--limit", type=int, default=10, help="show the N most recent (default: 10)")
+    p_list.set_defaults(func=cmd_list)
+
+    p_snote = sub.add_parser("session-note", help="add a free-text session note (wip, or a finalized entry via --id)")
+    p_snote.add_argument("text", help="the note text")
+    p_snote.add_argument("--id", dest="entry_id", help="target a finalized entry by id (default: the live wip)")
+    p_snote.set_defaults(func=cmd_session_note)
+
+    p_cr = sub.add_parser("change-request", help="record a request to change the rework tool itself")
+    p_cr.add_argument("text", help="the change request")
+    p_cr.set_defaults(func=cmd_change_request)
 
     args = parser.parse_args()
     ROOT.mkdir(exist_ok=True)
@@ -146,6 +161,7 @@ def cmd_end(args):
     rework_files, rework_lines = churn(f"{commit_a}..{commit_b}")
     rework_pct = round(rework_lines / ai_lines * 100, 1) if ai_lines else None
 
+    entry["id"] = new_id()
     entry["commits"].update({"base": base, "b": commit_b})
     entry["timestamp"] = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     entry["metrics"] = {
@@ -164,9 +180,10 @@ def cmd_end(args):
     wip_path_for(repo_name(), branch).unlink(missing_ok=True)
 
     pct = f"{rework_pct}%" if rework_pct is not None else "n/a"
-    print(f"logged '{entry['slug']}' -> {log_path.name}")
+    print(f"logged '{entry['slug']}' [{entry['id']}] -> {log_path.name}")
     print(f"  ai_lines={ai_lines}  rework_lines={rework_lines}  rework_pct={pct}  "
           f"files={entry['metrics']['files_touched']}  hunks={entry['metrics']['hunks']}")
+    print(f"  add a session note later with: rework session-note --id {entry['id']} \"...\"")
 
 
 def cmd_status(args):
@@ -176,6 +193,54 @@ def cmd_status(args):
         print(f"no rework in progress on branch '{branch}'")
         return
     print(json.dumps(json.loads(wip_path.read_text()), indent=2))
+
+
+def cmd_list(args):
+    log_path = ROOT / f"{repo_name()}.jsonl"
+    if not log_path.exists():
+        print(f"no finalized entries for '{repo_name()}'")
+        return
+    entries = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
+    for entry in reversed(entries[-args.limit:]):
+        date = (entry.get("timestamp") or "")[:10]
+        entry_id = entry.get("id") or "------"
+        print(f"  {entry_id}  {date or '----------'}  {entry.get('slug', '')}")
+
+
+def cmd_session_note(args):
+    if args.entry_id:
+        _append_session_note_to_finalized(args.entry_id, args.text)
+        return
+    entry = load_wip()
+    entry.setdefault("session_notes", []).append(args.text)
+    write_json(wip_path_for(repo_name(), entry["branch"]), entry)
+    print(f"session note added to wip: {args.text}")
+
+
+def _append_session_note_to_finalized(entry_id, text):
+    log_path = ROOT / f"{repo_name()}.jsonl"
+    if not log_path.exists():
+        die(f"no finalized entries for '{repo_name()}'")
+    entries = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
+    matches = [entry for entry in entries if entry.get("id") == entry_id]
+    if not matches:
+        die(f"no finalized entry with id '{entry_id}' (try `rework list`)")
+    matches[0].setdefault("session_notes", []).append(text)
+    log_path.write_text("".join(json.dumps(entry) + "\n" for entry in entries))
+    print(f"session note added to [{entry_id}]: {text}")
+
+
+def cmd_change_request(args):
+    record = {
+        "id": new_id(),
+        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "repo": repo_name(),
+        "request": args.text,
+        "status": "open",
+    }
+    with CHANGE_REQUESTS_PATH.open("a") as f:
+        f.write(json.dumps(record) + "\n")
+    print(f"change request recorded [{record['id']}]: {args.text}")
 
 
 def load_wip():
@@ -230,6 +295,10 @@ def slug_from_branch(branch):
         if branch.startswith(prefix):
             return branch[len(prefix):]
     return branch
+
+
+def new_id():
+    return "r" + secrets.token_hex(3)
 
 
 def repo_name():
