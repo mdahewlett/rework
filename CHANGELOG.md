@@ -7,6 +7,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-26
+
 ### Added
 - `rework list [--limit N]` — list finalized entries (id, date, slug), newest first.
 - `rework session-note <text> [--id <id>]` — free-text note about a cycle or its metrics, on the live in-progress cycle or a finalized entry.
