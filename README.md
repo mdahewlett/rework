@@ -100,12 +100,23 @@ rework review <minutes>             # review → merge (you supply the time)
 rework end                          # stamp HEAD as B, compute the diff, finalize the entry
 rework status                       # show the in-progress entry
 rework base <commit>                # set the pre-AI baseline (rarely needed; see below)
+
+rework session-note "text" [--id <id>]   # free-text note on the wip cycle, or a finalized entry
+rework list [--limit N]                   # finalized entries (id, date, slug), newest first
+rework tags                               # list the category vocabulary
+rework change-request "text"              # record a request to change the tool itself
+rework change-request --list              # show the request queue
+rework change-request --set <id> <status> # open | in-progress | done | wontfix
+rework help [--all]                       # command menu, or every command with full arguments
 ```
 
 - One work item = one branch. The slug defaults to the branch name (minus `feat/`, `fix/`).
 - Notes and times can be added in any order, anytime between `start` and `end`.
 - `--harness <name>` on `start` records which agent built it (default `claude-code`) so you
   can compare tools.
+- `--json` gives machine-readable output for `status` / `list` / `tags` / `end` (and is the
+  default when output isn't a terminal, so agents get structure for free). `--version` / `-V`
+  prints the version.
 - **Parallel worktrees work out of the box.** Run an agent in each of several worktrees of
   the same repo and start a separate rework session in each — the in-progress state is keyed
   by `<repo>-<branch>`, so the sessions never collide. They all finalize into the same
@@ -184,6 +195,7 @@ with Claude Code skill frontmatter on top, so it's harness-agnostic.
   hooks/session-start.sh          # Claude Code reminder hook     (this repo)
   <repo>.jsonl                    # append-only log, one line per work item   [data]
   _tags.json                      # category vocabulary                        [data]
+  change_requests.jsonl           # requests to change the tool itself         [data]
   .wip-<repo>-<branch>.json       # transient in-progress entry, deleted on end [data]
 ```
 
@@ -200,6 +212,10 @@ support all of it without rewriting history:
 - **Layer aggregation** — mapping per-file churn to `api`/`services`/`models`/… at read time.
 - **Cross-repo views** — globbing `~/.rework/*.jsonl` for a portfolio picture.
 - **Time integration** — pulling build/review minutes from a tracker instead of by hand.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for notable changes per version.
 
 ## License
 

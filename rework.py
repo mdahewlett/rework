@@ -15,13 +15,28 @@ runs these commands; it never touches the files directly.
 
 import argparse
 import json
+import secrets
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+__version__ = "0.2.0"
+
 ROOT = Path.home() / ".rework"
 TAGS_PATH = ROOT / "_tags.json"
+CHANGE_REQUESTS_PATH = ROOT / "change_requests.jsonl"
+CR_STATUSES = ("open", "in-progress", "done", "wontfix")
+
+EXAMPLES = """\
+examples:
+  rework start                                  stamp HEAD as A on the current branch
+  rework note -c architecture "moved client to core/"
+  rework build 40                               record build minutes
+  rework review 25                              record review minutes
+  rework end                                    finalize, print metrics + id
+  rework list --json                            machine-readable entries for an agent
+"""
 
 SEED_TAGS = {
     "architecture": "how code is split across files/modules/layers; boundaries; wrong altitude; structural reorganization",
@@ -32,10 +47,22 @@ SEED_TAGS = {
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="rework", description="solo AI-velocity rework tracker")
+    parser = argparse.ArgumentParser(
+        prog="rework",
+        description="solo AI-velocity rework tracker",
+        epilog=EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--version", "-V", action="version", version=f"rework {__version__}")
+    parser.add_argument("--json", action="store_true",
+                        help="machine-readable JSON output (also the default when not a TTY)")
+
+    json_parent = argparse.ArgumentParser(add_help=False)
+    json_parent.add_argument("--json", action="store_true", help="machine-readable JSON output")
+
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_start = sub.add_parser("start", help="stamp HEAD as commit A (AI's first effort)")
+    p_start = sub.add_parser("start", parents=[json_parent], help="stamp HEAD as commit A (AI's first effort)")
     p_start.add_argument("slug", nargs="?", help="work slug (default: branch name)")
     p_start.add_argument("description", nargs="?", help="one-line description")
     p_start.add_argument("--at", help="use this commit as A instead of HEAD (back-fill)")
@@ -43,29 +70,52 @@ def main():
     p_start.add_argument("--harness", default="claude-code", help="AI harness (default: claude-code)")
     p_start.set_defaults(func=cmd_start)
 
-    p_note = sub.add_parser("note", help="add a categorized rework note")
+    p_note = sub.add_parser("note", parents=[json_parent], help="add a categorized rework note")
     p_note.add_argument("-c", "--category", required=True, help="rework category tag")
     p_note.add_argument("text", help="what was changed, in your words")
     p_note.set_defaults(func=cmd_note)
 
-    p_base = sub.add_parser("base", help="set/update the pre-AI baseline commit")
+    p_base = sub.add_parser("base", parents=[json_parent], help="set/update the pre-AI baseline commit")
     p_base.add_argument("commit", help="baseline commit (sha or ref)")
     p_base.set_defaults(func=cmd_base)
 
-    p_build = sub.add_parser("build", help="record build minutes (plan -> first impl)")
+    p_build = sub.add_parser("build", parents=[json_parent], help="record build minutes (plan -> first impl)")
     p_build.add_argument("minutes", type=int)
     p_build.set_defaults(func=cmd_build)
 
-    p_review = sub.add_parser("review", help="record review minutes (review -> merge)")
+    p_review = sub.add_parser("review", parents=[json_parent], help="record review minutes (review -> merge)")
     p_review.add_argument("minutes", type=int)
     p_review.set_defaults(func=cmd_review)
 
-    p_end = sub.add_parser("end", help="stamp HEAD as commit B, finalize the entry")
+    p_end = sub.add_parser("end", parents=[json_parent], help="stamp HEAD as commit B, finalize the entry")
     p_end.add_argument("--at", help="use this commit as B instead of HEAD (back-fill)")
     p_end.set_defaults(func=cmd_end)
 
-    p_status = sub.add_parser("status", help="show the current in-progress entry")
+    p_status = sub.add_parser("status", parents=[json_parent], help="show the current in-progress entry")
     p_status.set_defaults(func=cmd_status)
+
+    p_tags = sub.add_parser("tags", parents=[json_parent], help="list the current category vocabulary")
+    p_tags.set_defaults(func=cmd_tags)
+
+    p_help = sub.add_parser("help", parents=[json_parent], help="show help; --all for every command's arguments")
+    p_help.add_argument("--all", action="store_true", help="show every command with its full arguments")
+    p_help.set_defaults(func=lambda args: cmd_help(args, parser, sub))
+
+    p_list = sub.add_parser("list", parents=[json_parent], help="list finalized entries (id, date, slug), newest first")
+    p_list.add_argument("--limit", type=int, default=10, help="show the N most recent (default: 10)")
+    p_list.set_defaults(func=cmd_list)
+
+    p_snote = sub.add_parser("session-note", parents=[json_parent], help="add a free-text session note (wip, or a finalized entry via --id)")
+    p_snote.add_argument("text", help="the note text")
+    p_snote.add_argument("--id", dest="entry_id", help="target a finalized entry by id (default: the live wip)")
+    p_snote.set_defaults(func=cmd_session_note)
+
+    p_cr = sub.add_parser("change-request", parents=[json_parent], help="record/list/update requests to change the rework tool itself")
+    p_cr.add_argument("text", nargs="?", help="the change request to record")
+    p_cr.add_argument("--list", action="store_true", help="list change requests")
+    p_cr.add_argument("--set", nargs=2, metavar=("ID", "STATUS"),
+                      help="set a request's status (open | in-progress | done | wontfix)")
+    p_cr.set_defaults(func=cmd_change_request)
 
     args = parser.parse_args()
     ROOT.mkdir(exist_ok=True)
@@ -146,6 +196,7 @@ def cmd_end(args):
     rework_files, rework_lines = churn(f"{commit_a}..{commit_b}")
     rework_pct = round(rework_lines / ai_lines * 100, 1) if ai_lines else None
 
+    entry["id"] = new_id()
     entry["commits"].update({"base": base, "b": commit_b})
     entry["timestamp"] = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     entry["metrics"] = {
@@ -163,19 +214,153 @@ def cmd_end(args):
         f.write(json.dumps(entry) + "\n")
     wip_path_for(repo_name(), branch).unlink(missing_ok=True)
 
+    if want_json(args):
+        emit_json({"id": entry["id"], "slug": entry["slug"], "log": log_path.name, "metrics": entry["metrics"]})
+        return
+
     pct = f"{rework_pct}%" if rework_pct is not None else "n/a"
-    print(f"logged '{entry['slug']}' -> {log_path.name}")
+    print(f"logged '{entry['slug']}' [{entry['id']}] -> {log_path.name}")
     print(f"  ai_lines={ai_lines}  rework_lines={rework_lines}  rework_pct={pct}  "
           f"files={entry['metrics']['files_touched']}  hunks={entry['metrics']['hunks']}")
+    print(f"  add a session note later with: rework session-note --id {entry['id']} \"...\"")
 
 
 def cmd_status(args):
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     wip_path = wip_path_for(repo_name(), branch)
     if not wip_path.exists():
-        print(f"no rework in progress on branch '{branch}'")
+        if want_json(args):
+            emit_json({"in_progress": False, "branch": branch})
+        else:
+            print(f"no rework in progress on branch '{branch}'")
         return
-    print(json.dumps(json.loads(wip_path.read_text()), indent=2))
+    entry = json.loads(wip_path.read_text())
+    if want_json(args):
+        emit_json(entry)
+    else:
+        print(json.dumps(entry, indent=2))
+
+
+def cmd_tags(args):
+    tags = json.loads(TAGS_PATH.read_text()) if TAGS_PATH.exists() else dict(SEED_TAGS)
+    if want_json(args):
+        emit_json({"tags": tags})
+        return
+    width = max((len(name) for name in tags), default=0)
+    for name in sorted(tags):
+        description = tags[name] or "(no description)"
+        print(f"  {name:<{width}}  {description}")
+
+
+def cmd_help(args, parser, sub):
+    parser.print_help()
+    if not args.all:
+        return
+    for name, subparser in sub.choices.items():
+        if name == "help":
+            continue
+        print(f"\n{'─' * 60}\nrework {name}\n")
+        print(subparser.format_help())
+
+
+def cmd_list(args):
+    log_path = ROOT / f"{repo_name()}.jsonl"
+    entries = []
+    if log_path.exists():
+        entries = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
+    recent = list(reversed(entries[-args.limit:]))
+    if want_json(args):
+        emit_json({"entries": [
+            {
+                "id": entry.get("id"),
+                "date": (entry.get("timestamp") or "")[:10],
+                "slug": entry.get("slug"),
+                "rework_pct": entry.get("metrics", {}).get("rework_pct"),
+            }
+            for entry in recent
+        ]})
+        return
+    if not recent:
+        print(f"no finalized entries for '{repo_name()}'")
+        return
+    for entry in recent:
+        date = (entry.get("timestamp") or "")[:10]
+        entry_id = entry.get("id") or "------"
+        print(f"  {entry_id}  {date or '----------'}  {entry.get('slug', '')}")
+
+
+def cmd_session_note(args):
+    if args.entry_id:
+        _append_session_note_to_finalized(args.entry_id, args.text)
+        return
+    entry = load_wip()
+    entry.setdefault("session_notes", []).append(args.text)
+    write_json(wip_path_for(repo_name(), entry["branch"]), entry)
+    print(f"session note added to wip: {args.text}")
+
+
+def _append_session_note_to_finalized(entry_id, text):
+    log_path = ROOT / f"{repo_name()}.jsonl"
+    if not log_path.exists():
+        die(f"no finalized entries for '{repo_name()}'")
+    entries = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
+    matches = [entry for entry in entries if entry.get("id") == entry_id]
+    if not matches:
+        die(f"no finalized entry with id '{entry_id}' (try `rework list`)")
+    matches[0].setdefault("session_notes", []).append(text)
+    log_path.write_text("".join(json.dumps(entry) + "\n" for entry in entries))
+    print(f"session note added to [{entry_id}]: {text}")
+
+
+def cmd_change_request(args):
+    if args.list:
+        _list_change_requests()
+    elif args.set:
+        _set_change_request_status(args.set[0], args.set[1])
+    elif args.text:
+        _record_change_request(args.text)
+    else:
+        die("nothing to do — pass a request to record, or use --list / --set ID STATUS")
+
+
+def _record_change_request(text):
+    record = {
+        "id": new_id(),
+        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "repo": repo_name(),
+        "request": text,
+        "status": "open",
+    }
+    with CHANGE_REQUESTS_PATH.open("a") as f:
+        f.write(json.dumps(record) + "\n")
+    print(f"change request recorded [{record['id']}]: {text}")
+
+
+def _list_change_requests():
+    records = _load_change_requests()
+    if not records:
+        print("no change requests")
+        return
+    for record in records:
+        print(f"  [{record['id']}] {record['status']:<11}  {record['request']}")
+
+
+def _set_change_request_status(entry_id, status):
+    if status not in CR_STATUSES:
+        die(f"unknown status '{status}' — choose from {', '.join(CR_STATUSES)}")
+    records = _load_change_requests()
+    matches = [record for record in records if record.get("id") == entry_id]
+    if not matches:
+        die(f"no change request with id '{entry_id}' (try `rework change-request --list`)")
+    matches[0]["status"] = status
+    CHANGE_REQUESTS_PATH.write_text("".join(json.dumps(record) + "\n" for record in records))
+    print(f"change request [{entry_id}] -> {status}")
+
+
+def _load_change_requests():
+    if not CHANGE_REQUESTS_PATH.exists():
+        return []
+    return [json.loads(line) for line in CHANGE_REQUESTS_PATH.read_text().splitlines() if line.strip()]
 
 
 def load_wip():
@@ -232,8 +417,21 @@ def slug_from_branch(branch):
     return branch
 
 
+def new_id():
+    return "r" + secrets.token_hex(3)
+
+
+def want_json(args):
+    return args.json or not sys.stdout.isatty()
+
+
+def emit_json(data):
+    print(json.dumps(data))
+
+
 def repo_name():
-    return Path(git("rev-parse", "--show-toplevel")).name
+    common_dir = Path(git("rev-parse", "--git-common-dir")).resolve()
+    return common_dir.parent.name
 
 
 def wip_path_for(repo, branch):
