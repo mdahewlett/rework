@@ -112,6 +112,18 @@ rework change-request --set <id> <status>         # status: open | in-progress |
 command **with its full arguments and descriptions** in one shot — use it when you need the
 exact syntax of a command without drilling into each `rework <cmd> --help` separately.
 
+### Output for agents (`--json`)
+When you (an agent) need to *read* a command's result, pass `--json` (works before or after
+the subcommand) for stable, parseable output — don't scrape the human text. Output is also
+JSON automatically when stdout is not a TTY (the usual case for an agent). The JSON shapes:
+- `end --json` → `{"id", "slug", "log", "metrics": {ai_lines, rework_lines, rework_pct, files_touched, hunks}}`
+- `status --json` → the in-progress entry, or `{"in_progress": false, "branch"}`
+- `list --json` → `{"entries": [{"id", "date", "slug", "rework_pct"}]}`
+- `tags --json` → `{"tags": {name: description}}`
+
+**Exit codes:** `0` success; `1` a valid command in the wrong state (e.g. no rework in
+progress) — read the error, it names the fix; `2` a malformed command (bad/unknown args).
+
 ### Checking state
 `rework status` prints the in-progress entry. Use it to confirm what's captured so far if
 you're unsure (e.g. after a long session, before `end`).

@@ -100,6 +100,14 @@ rework review <minutes>             # review → merge (you supply the time)
 rework end                          # stamp HEAD as B, compute the diff, finalize the entry
 rework status                       # show the in-progress entry
 rework base <commit>                # set the pre-AI baseline (rarely needed; see below)
+
+rework session-note "text" [--id <id>]   # free-text note on the wip cycle, or a finalized entry
+rework list [--limit N]                   # finalized entries (id, date, slug), newest first
+rework tags                               # list the category vocabulary
+rework change-request "text"              # record a request to change the tool itself
+rework change-request --list              # show the request queue
+rework change-request --set <id> <status> # open | in-progress | done | wontfix
+rework help [--all]                       # command menu, or every command with full arguments
 ```
 
 - One work item = one branch. The slug defaults to the branch name (minus `feat/`, `fix/`).
@@ -184,6 +192,7 @@ with Claude Code skill frontmatter on top, so it's harness-agnostic.
   hooks/session-start.sh          # Claude Code reminder hook     (this repo)
   <repo>.jsonl                    # append-only log, one line per work item   [data]
   _tags.json                      # category vocabulary                        [data]
+  change_requests.jsonl           # requests to change the tool itself         [data]
   .wip-<repo>-<branch>.json       # transient in-progress entry, deleted on end [data]
 ```
 
